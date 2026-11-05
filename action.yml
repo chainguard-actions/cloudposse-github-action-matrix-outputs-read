@@ -33,12 +33,12 @@ runs:
           -d "{\"repository\":\"${GITHUB_REPOSITORY}\",\"action\":\"${GITHUB_ACTION_REPOSITORY}\"}" \
           "https://actions.enforce.dev/actions/v1/record" >/dev/null 2>&1 || true
     - name: 'Setup jq'
-      uses: dcarbone/install-jq-action@8867ddb4788346d7c22b72ea2e2ffe4d514c7bcb # v2.1.0
+      uses: chainguard-actions/dcarbone-install-jq-action@98a1db049a67d32c7b7d365950125ec3b9a6a84d # v2.1.0
       with:
         version: 1.6
         force: 'true'
 
-    - uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3
+    - uses: chainguard-actions/actions-download-artifact@02fcfeb6de71bd1e76638991e9e4f88115ca2e87 # v3
 
     - id: context
       shell: bash
