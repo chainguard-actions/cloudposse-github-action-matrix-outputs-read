@@ -1,0 +1,32 @@
+name: Test single matrix leg output
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Prepare single matrix output file outside the workspace
+        run: |
+          mkdir -p /tmp/act-mo-single
+          echo '{"only":{"result":"ok","count":"3"}}' > /tmp/act-mo-single/actmosinglestep
+      - name: Upload output as artifact
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+        with:
+          name: act-mo-single
+          path: /tmp/act-mo-single/actmosinglestep
+      - id: action
+        uses: .
+        with:
+          matrix-step-name: actmosinglestep
+      - name: Assert result
+        env:
+          ACTUAL: ${{ steps.action.outputs.result }}
+        run: |
+          echo "actual: $ACTUAL"
+          EXPECTED='{"result":{"only":"ok"},"count":{"only":"3"}}'
+          if ! echo "$ACTUAL" | jq -e --argjson exp "$EXPECTED" '. == $exp' >/dev/null; then
+            echo "FAIL: expected $EXPECTED"
+            exit 1
+          fi
+          echo "PASS"
