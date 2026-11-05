@@ -1,0 +1,31 @@
+name: Test single matrix entry
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Prepare matrix output file
+        run: |
+          mkdir -p "$RUNNER_TEMP/s"
+          echo '{"only": {"version": "1.2.3"}}' > "$RUNNER_TEMP/s/single-step"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: matrix-only
+          path: ${{ runner.temp }}/s/single-step
+      - id: action
+        uses: .
+        with:
+          matrix-step-name: single-step
+      - name: Assert result
+        env:
+          ACTUAL: ${{ steps.action.outputs.result }}
+        run: |
+          echo "actual: $ACTUAL"
+          NORM="$(echo "$ACTUAL" | jq -c .)"
+          if [ "$NORM" != '{"version":{"only":"1.2.3"}}' ]; then
+            echo "FAIL: unexpected result '$NORM'"
+            exit 1
+          fi
+          echo "PASS"

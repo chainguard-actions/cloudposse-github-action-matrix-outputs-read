@@ -1,0 +1,43 @@
+name: Test basic matrix outputs merge
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Prepare matrix output files
+        run: |
+          mkdir -p "$RUNNER_TEMP/a" "$RUNNER_TEMP/b"
+          echo '{"linux": {"image": "img-linux", "status": "ok"}}' > "$RUNNER_TEMP/a/test-matrix-step"
+          echo '{"windows": {"image": "img-win", "status": "fail"}}' > "$RUNNER_TEMP/b/test-matrix-step"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: matrix-linux
+          path: ${{ runner.temp }}/a/test-matrix-step
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: matrix-windows
+          path: ${{ runner.temp }}/b/test-matrix-step
+      - id: action
+        uses: .
+        with:
+          matrix-step-name: test-matrix-step
+      - name: Assert merged result
+        env:
+          ACTUAL: ${{ steps.action.outputs.result }}
+        run: |
+          echo "actual: $ACTUAL"
+          check() {
+            got="$(echo "$ACTUAL" | jq -r "$1")"
+            if [ "$got" != "$2" ]; then
+              echo "FAIL: $1 = '$got', expected '$2'"
+              exit 1
+            fi
+          }
+          check '.image.linux' 'img-linux'
+          check '.image.windows' 'img-win'
+          check '.status.linux' 'ok'
+          check '.status.windows' 'fail'
+          check '.image | keys | length' '2'
+          echo "PASS"

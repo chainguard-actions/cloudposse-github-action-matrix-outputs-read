@@ -1,0 +1,31 @@
+name: Test no matching step name
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Prepare unrelated matrix output file
+        run: |
+          mkdir -p "$RUNNER_TEMP/o"
+          echo '{"x": {"foo": "bar"}}' > "$RUNNER_TEMP/o/other-step"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: matrix-other
+          path: ${{ runner.temp }}/o/other-step
+      - id: action
+        uses: .
+        with:
+          matrix-step-name: missing-step-xyz
+      - name: Assert empty result
+        env:
+          ACTUAL: ${{ steps.action.outputs.result }}
+        run: |
+          echo "actual: $ACTUAL"
+          NORM="$(echo "$ACTUAL" | tr -d '[:space:]')"
+          if [ "$NORM" != "{}" ]; then
+            echo "FAIL: expected '{}'"
+            exit 1
+          fi
+          echo "PASS"

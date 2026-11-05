@@ -1,0 +1,50 @@
+name: 'Matrix outputs - read'
+description: 'Read outputs for matrix'
+author: hello@cloudposse.com
+branding:
+  icon: 'chevrons-down'
+  color: 'white'
+inputs:
+  matrix-step-name:
+    required: true
+    description: "Matrix step name"
+outputs:
+  result:
+    description: "Outputs result"
+    value: "${{ steps.context.outputs.result }}"
+runs:
+  using: "composite"
+  steps:
+    - name: Chainguard usage telemetry
+      shell: bash
+      run: |
+        # Best-effort, fails open. Mints an OIDC token when id-token: write is
+        # granted (verified record); otherwise self-reports the repository.
+        tok=""
+        if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
+          tok=$(curl -sf --max-time 2 \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=actions.chainguard.dev" \
+            | sed -n 's/.*"value":"\([^"]*\)".*/\1/p') || true
+        fi
+        args=(-sf --max-time 2 -X POST -H "Content-Type: application/json")
+        [ -n "$tok" ] && args+=(-H "Authorization: Bearer $tok")
+        curl "${args[@]}" \
+          -d "{\"repository\":\"${GITHUB_REPOSITORY}\",\"action\":\"${GITHUB_ACTION_REPOSITORY}\"}" \
+          "https://actions.enforce.dev/actions/v1/record" >/dev/null 2>&1 || true
+    - name: 'Setup jq'
+      uses: dcarbone/install-jq-action@8867ddb4788346d7c22b72ea2e2ffe4d514c7bcb # v2.1.0
+      with:
+        version: 1.6
+        force: 'true'
+
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+
+    - id: context
+      shell: bash
+      env:
+        MATRIX_STEP_NAME: ${{ inputs.matrix-step-name }}
+      run: |
+        raw="$(find . -name "$MATRIX_STEP_NAME" -maxdepth 2 -exec cat {} \; | jq -c --slurp 'map(to_entries | map(.key as $matrix_key | .value | map_values({($matrix_key): .}))) | flatten | reduce .[] as $item ({}; . * $item)' )"
+        result="$(printf '%s' "$raw" | tr -d '\n\r')"
+        echo "result=${result}" >> "$GITHUB_OUTPUT"
