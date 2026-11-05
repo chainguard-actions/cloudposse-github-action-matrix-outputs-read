@@ -1,0 +1,32 @@
+name: Test single matrix output
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Prepare a single matrix output file (outside the workspace)
+        run: |
+          mkdir -p /tmp/mxs
+          echo '{"amd64":{"digest":"sha256:abc"}}' > /tmp/mxs/mxtest-single-step
+      - name: Upload matrix output artifact
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+        with:
+          name: mxs-single-amd64
+          path: /tmp/mxs/mxtest-single-step
+      - id: action
+        uses: .
+        with:
+          matrix-step-name: mxtest-single-step
+      - name: Assert result
+        env:
+          ACTUAL: ${{ steps.action.outputs.result }}
+        run: |
+          echo "actual: $ACTUAL"
+          A="$(echo "$ACTUAL" | jq -S -c .)"
+          if [ "$A" != '{"digest":{"amd64":"sha256:abc"}}' ]; then
+            echo "FAIL: unexpected result $A"
+            exit 1
+          fi
+          echo "PASS"
